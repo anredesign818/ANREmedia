@@ -1,0 +1,45 @@
+name: ANRE Telegram
+
+# Every 10 minutes GitHub checks tg/queue.json (Dubai time) and posts whatever is due.
+# Posted items are logged in tg/posted.json, so nothing is posted twice.
+on:
+  schedule:
+    - cron: '3-59/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'due | check | reel | essay | telegraph'
+        required: true
+        default: due
+      folder:
+        description: 'reel number (04) or folder in tg/essays/ (n013)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: anre-telegram
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish
+        env:
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TELEGRAPH_TOKEN: ${{ secrets.TELEGRAPH_TOKEN }}
+          MODE: ${{ inputs.mode || 'due' }}
+          ARG: ${{ inputs.folder }}
+        run: python3 tg/tools/publish.py "$MODE" "$ARG"
+      - name: Keep new Telegraph token (only if one was created)
+        if: hashFiles('telegraph_token.txt') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: telegraph_token
+          path: telegraph_token.txt
+          retention-days: 3
